@@ -1,0 +1,65 @@
+version: '3.8'
+
+volumes:
+  kcpgdata:
+    driver: local
+
+services:
+
+  postgres:
+    image: postgres:9.6
+    container_name: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+    restart: always
+    ports:
+      - 5432:5432
+    volumes:
+      - kcpgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+
+  vault:
+    image: vault:1.4.7
+    container_name: vault
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 8200:8200
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: myroot
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:18.0.2
+    container_name: keycloak
+    entrypoint: ["/opt/keycloak/bin/kc.sh", "start-dev"]
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "--output", "/dev/null", "--silent", "--head", "--fail", "http://127.0.0.1:8080/"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    ports:
+      - 9990:9990
+      - 8090:8080
+      - 8443:8443
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: postgres
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_PASSWORD: password
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: password
+      KC_HOSTNAME: localhost
+      KEYCLOAK_ADMIN: a
+      KEYCLOAK_ADMIN_PASSWORD: a
