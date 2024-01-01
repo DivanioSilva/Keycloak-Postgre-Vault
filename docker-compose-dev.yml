@@ -26,7 +26,10 @@ services:
       POSTGRES_USER: postgres
 
   vault:
-    image: hashicorp/vault:1.14
+#    image: hashicorp/vault:1.14
+    build:
+      context: .
+      dockerfile: Dockerfile.vault
     container_name: vault
 #    healthcheck:
 #      test: [ "CMD", "curl", "--output", "/dev/null", "--silent", "--head", "--fail", "http://127.0.0.1:8080/v1/sys/health" ]
@@ -44,7 +47,14 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:18.0.2
     container_name: keycloak
-    entrypoint: ["/opt/keycloak/bin/kc.sh", "start-dev"]
+    entrypoint: ["/opt/keycloak/bin/kc.sh",
+                 "start-dev",
+    "-Dquarkus.datasource.credentials-provider=keycloak",
+    "-Dquarkus.vault.url=http://vault:8200/v1",
+    "-Dquarkus.vault.credentials-provider.keycloak.credentials-role=dbuser",
+    "-Dquarkus.vault.credentials-provider.keycloak.credentials-mount=database",
+    "-Dquarkus.datasource.jdbc.max-lifetime=30s",
+    "-Dquarkus.vault.authentication.client-token=myroot"]
     depends_on:
       - postgres
     healthcheck:
@@ -55,18 +65,18 @@ services:
       start_period: 40s
     ports:
       - "9990:9990"
-      - "8090:8080"
+      - "8080:8080"
       - "8443:8443"
     environment:
       DB_VENDOR: POSTGRES
       DB_ADDR: postgres
       DB_DATABASE: keycloak
-      DB_USER: keycloak
-      DB_PASSWORD: password
+      #DB_USER: keycloak
+      #DB_PASSWORD: password
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: postgres
-      KC_DB_PASSWORD: password
-      KC_HOSTNAME: localhost
+      #KC_DB_USERNAME: postgres
+      #KC_DB_PASSWORD: password
+      #KC_HOSTNAME: localhost
       KEYCLOAK_ADMIN: a
       KEYCLOAK_ADMIN_PASSWORD: a
